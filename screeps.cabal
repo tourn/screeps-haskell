@@ -19,6 +19,7 @@ library
   build-depends:       base >= 4.7 && < 5
                      , ghcjs-base
                      , ghcjs-prim
+                     , containers
   default-language:    Haskell2010
 
 executable screeps-exe
