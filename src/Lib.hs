@@ -37,8 +37,9 @@ data Creep
 
 run :: IO()
 run = do
-  cb <- C.asyncCallback tick
+  cb <- C.syncCallback C.ThrowWouldBlock tick
   js_mainLoop cb
+  C.releaseCallback cb
 
 tick :: IO ()
 tick = do
