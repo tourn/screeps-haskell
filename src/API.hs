@@ -39,8 +39,8 @@ type Resource = String
 type CreepInventory = Map.Map Resource Int
 
 data Action
-  = MoveAction CreepName Position
-  | HarvestAction CreepName RoomObject
+  = MoveAction Creep Position
+  | HarvestAction Creep RoomObject
   deriving (Show)
 
 data RoomObject
@@ -76,8 +76,8 @@ tickCallback f = do
 --  C.releaseCallback cb -- if this is released, not all ticks will run
 
 runAction :: Action -> IO ()
-runAction (MoveAction name (x, y)) = js_moveAction (S.pack name) x y
-runAction (HarvestAction name source) = js_harvestAction (S.pack name) (S.pack (sourceId source))
+runAction (MoveAction creep (x, y)) = js_moveAction (S.pack $ creepName creep) x y
+runAction (HarvestAction creep source) = js_harvestAction (S.pack $ creepName creep) (S.pack (sourceId source))
 
 readCreep :: T.JSVal -> IO Creep
 readCreep v = do

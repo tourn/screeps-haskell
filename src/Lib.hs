@@ -23,9 +23,18 @@ tick = do
 
 think :: Room -> [Action]
 think room = map makeAction (roomCreeps room)
-  --where makeAction creep = moveTo creep (sourcePosition (head (roomObjects room)))
-  where makeAction creep = HarvestAction (creepName creep) (head (roomObjects room))
+  where makeAction creep 
+                   | adjacent (creepPos creep) (sourcePosition targetSource) = HarvestAction creep targetSource
+                   | otherwise = moveTo creep (sourcePosition targetSource)
+        targetSource = (head (roomObjects room))
 
 moveTo :: Creep -> Position -> Action
-moveTo creep pos = MoveAction (creepName creep) pos
+moveTo creep pos = MoveAction creep pos
+
+inRange :: Int -> Position -> Position -> Bool
+inRange 0 a b = a == b
+inRange range (ax, ay) (bx, by) = ((distance ax bx) <= range) && ((distance ay by) <= range)
+  where distance a b = abs $ a - b
+
+adjacent = inRange 1
 
