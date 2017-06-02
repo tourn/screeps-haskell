@@ -13,7 +13,8 @@ module API
     runAction,
     tickCallback,
     creeps,
-    sources
+    sources,
+    controller
     ) where
 
 import qualified Data.JSString    as S
@@ -28,10 +29,13 @@ import qualified JavaScript.Array as A
 foreign import javascript unsafe "[{name: 'dummy', carry: { energy: 12}, pos: {x: 14, y: 15}, carryCapacity: 50 }, {name: 'dummy2', carry: {}, pos: {x: 45, y: 11}, carryCapacity: 100 }]" js_getcreeps_dummy :: T.JSVal
 
 foreign import javascript unsafe "module.exports.loop = $1" js_mainLoop :: C.Callback (IO()) -> IO()
-foreign import javascript unsafe "Game.creeps[$1].moveTo($2,$3);" js_moveAction :: S.JSString -> Int -> Int -> IO ()
-foreign import javascript unsafe "Game.creeps[$1].harvest(Game.getObjectById($2));" js_harvestAction :: S.JSString -> S.JSString -> IO ()
 foreign import javascript unsafe "Object.keys(Game.creeps).map(function(k){ return Game.creeps[k]})" js_getcreeps :: T.JSVal
 foreign import javascript unsafe "Game.rooms.sim.find(FIND_SOURCES)" js_getsources :: T.JSVal
+foreign import javascript unsafe "Game.rooms.sim.controller" js_getcontroller :: T.JSVal
+
+foreign import javascript unsafe "Game.creeps[$1].moveTo($2,$3);" js_moveAction :: S.JSString -> Int -> Int -> IO ()
+foreign import javascript unsafe "Game.creeps[$1].harvest(Game.getObjectById($2));" js_harvestAction :: S.JSString -> S.JSString -> IO ()
+foreign import javascript unsafe "Game.creeps[$1].upgradeController(Game.getObjectById($2));" js_upgradeAction :: S.JSString -> S.JSString -> IO ()
 
 type CreepName = String
 type Position = (Int, Int)
@@ -41,6 +45,8 @@ type CreepInventory = Map.Map Resource Int
 data Action
   = MoveAction Creep Position
   | HarvestAction Creep RoomObject
+  | UpgradeAction Creep RoomObject
+  | NoopAction Creep
   deriving (Show)
 
 data RoomObject
@@ -50,7 +56,10 @@ data RoomObject
   , sourceEnergy :: Int
   }
 -- | Spawn Position
--- | Controller Position
+  | Controller 
+  { controllerId :: String
+  , controllerPosition :: Position
+  }
 -- | Extension Position
   deriving (Show)
 
@@ -58,6 +67,7 @@ data Room
   = Room
   { roomObjects :: [RoomObject]
   , roomCreeps :: [Creep]
+  , roomController :: RoomObject
   }
   deriving (Show)
 
@@ -78,6 +88,8 @@ tickCallback f = do
 runAction :: Action -> IO ()
 runAction (MoveAction creep (x, y)) = js_moveAction (S.pack $ creepName creep) x y
 runAction (HarvestAction creep source) = js_harvestAction (S.pack $ creepName creep) (S.pack (sourceId source))
+runAction (UpgradeAction creep controller) = js_upgradeAction (S.pack $ creepName creep) (S.pack (controllerId controller))
+runAction (NoopAction creep) = putStrLn $ (creepName creep) ++ " is doing NOTHING"
 
 readCreep :: T.JSVal -> IO Creep
 readCreep v = do
@@ -117,3 +129,14 @@ sources :: IO [RoomObject]
 sources = do
   sourceList <- P.fromJSArray js_getsources
   mapM readSource sourceList
+
+readController :: T.JSVal -> IO RoomObject
+readController v = do
+  js_pos <- P.getProp v "pos"
+  pos <- readPos js_pos
+  js_id <- P.getProp v "id"
+  return $ Controller (pFromJSVal js_id) pos
+  
+controller :: IO RoomObject
+controller = readController js_getcontroller
+
