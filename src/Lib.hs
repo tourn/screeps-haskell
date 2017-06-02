@@ -22,7 +22,7 @@ foreign import javascript unsafe "[{name: 'dummy', carry: { energy: 12}, pos: {x
 
 foreign import javascript unsafe "module.exports.loop = $1" js_mainLoop :: C.Callback (IO()) -> IO()
 foreign import javascript unsafe "Game.creeps[$1].moveTo($2,$3);" js_moveAction :: S.JSString -> Int -> Int -> IO ()
-foreign import javascript unsafe "Game.creeps" js_getcreeps :: T.JSVal
+foreign import javascript unsafe "Object.keys(Game.creeps).map(function(k){ return Game.creeps[k]})" js_getcreeps :: T.JSVal
 
 type CreepName = String
 type Position = (Int, Int)
@@ -47,21 +47,15 @@ data Creep
 
 run :: IO()
 run = do
-  creepList <- P.fromJSArray js_getcreeps_dummy
-  creeps <- mapM readCreep creepList
-  putStrLn $ show creeps
   cb <- C.syncCallback C.ThrowWouldBlock tick
   js_mainLoop cb
   C.releaseCallback cb
 
 tick :: IO ()
 tick = do
-  --creep <- readCreep js_creep
-  --runAction $ MoveAction "myName" (10, 20)
-  --putStrLn $ show creep
-  js_sayHi
-  creepList <- P.fromJSArray js_getcreeps_dummy
+  creepList <- P.fromJSArray js_getcreeps
   creeps <- mapM readCreep creepList
+  putStrLn $ show creeps
   let actions = think creeps
   forM_ actions runAction
   putStrLn $ show actions
@@ -84,10 +78,9 @@ readCreep v = do
 
 readCarry :: T.JSVal -> IO CreepInventory
 readCarry v = do
-  return Map.empty
-  --js_energy <- P.getProp v "energy"
-  --let energy = pFromJSVal energy :: Int
-  --return $ Map.fromList ["energy", energy]
+  --return Map.empty
+  js_energy <- P.getProp v "energy"
+  return $ Map.fromList [("energy", pFromJSVal js_energy)]
 
 readPos :: T.JSVal -> IO Position
 readPos v = do
