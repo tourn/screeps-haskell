@@ -22,6 +22,7 @@ foreign import javascript unsafe "[{name: 'dummy', carry: { energy: 12}, pos: {x
 
 foreign import javascript unsafe "module.exports.loop = $1" js_mainLoop :: C.Callback (IO()) -> IO()
 foreign import javascript unsafe "Game.creeps[$1].moveTo($2,$3);" js_moveAction :: S.JSString -> Int -> Int -> IO ()
+foreign import javascript unsafe "Game.creeps[$1].harvest(Game.getObjectById($2));" js_harvestAction :: S.JSString -> S.JSString -> IO ()
 foreign import javascript unsafe "Object.keys(Game.creeps).map(function(k){ return Game.creeps[k]})" js_getcreeps :: T.JSVal
 foreign import javascript unsafe "Game.rooms.sim.find(FIND_SOURCES)" js_getsources :: T.JSVal
 
@@ -30,11 +31,13 @@ type Position = (Int, Int)
 
 data Action
   = MoveAction CreepName Position
+  | HarvestAction CreepName RoomObject
   deriving (Show)
 
 data RoomObject
   = Source
-  { sourcePosition :: Position 
+  { sourceId :: String
+  , sourcePosition :: Position 
   , sourceEnergy :: Int
   }
 -- | Spawn Position
@@ -51,6 +54,7 @@ data Room
 
 runAction :: Action -> IO ()
 runAction (MoveAction name (x, y)) = js_moveAction (S.pack name) x y
+runAction (HarvestAction name source) = js_harvestAction (S.pack name) (S.pack (sourceId source))
 
 type Resource = String
 type CreepInventory = Map.Map Resource Int
@@ -67,7 +71,7 @@ run :: IO()
 run = do
   cb <- C.syncCallback C.ThrowWouldBlock tick
   js_mainLoop cb
---  C.releaseCallback cb
+--  C.releaseCallback cb -- if this is released, not all ticks will run
 
 tick :: IO ()
 tick = do
@@ -84,7 +88,8 @@ tick = do
 
 think :: Room -> [Action]
 think room = map makeAction (roomCreeps room)
-  where makeAction creep = moveTo creep (sourcePosition (head (roomObjects room)))
+  --where makeAction creep = moveTo creep (sourcePosition (head (roomObjects room)))
+  where makeAction creep = HarvestAction (creepName creep) (head (roomObjects room))
 
 moveTo :: Creep -> Position -> Action
 moveTo creep pos = MoveAction (creepName creep) pos
@@ -101,7 +106,6 @@ readCreep v = do
 
 readCarry :: T.JSVal -> IO CreepInventory
 readCarry v = do
-  --return Map.empty
   js_energy <- P.getProp v "energy"
   return $ Map.fromList [("energy", pFromJSVal js_energy)]
 
@@ -116,4 +120,5 @@ readSource v = do
   js_pos <- P.getProp v "pos"
   pos <- readPos js_pos
   js_energy <- P.getProp v "energy"
-  return $ Source pos (pFromJSVal js_energy)
+  js_id <- P.getProp v "id"
+  return $ Source (pFromJSVal js_id) pos (pFromJSVal js_energy)
