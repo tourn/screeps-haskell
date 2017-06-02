@@ -34,8 +34,8 @@ data Action
 
 data RoomObject
   = Source
-  { position :: Position 
-  , energy :: Int
+  { sourcePosition :: Position 
+  , sourceEnergy :: Int
   }
 -- | Spawn Position
 -- | Controller Position
@@ -67,10 +67,11 @@ run :: IO()
 run = do
   cb <- C.syncCallback C.ThrowWouldBlock tick
   js_mainLoop cb
-  C.releaseCallback cb
+--  C.releaseCallback cb
 
 tick :: IO ()
 tick = do
+  putStrLn $ show "TICK"
   creepList <- P.fromJSArray js_getcreeps
   creeps <- mapM readCreep creepList
   sourceList <- P.fromJSArray js_getsources
@@ -83,9 +84,10 @@ tick = do
 
 think :: Room -> [Action]
 think room = map makeAction (roomCreeps room)
-  where makeAction creep = MoveAction (creepName creep) (newPos creep)
-        newPos (Creep _ (x, y) _ _) = (x + 1, y + 1)
+  where makeAction creep = moveTo creep (sourcePosition (head (roomObjects room)))
 
+moveTo :: Creep -> Position -> Action
+moveTo creep pos = MoveAction (creepName creep) pos
 
 readCreep :: T.JSVal -> IO Creep
 readCreep v = do
