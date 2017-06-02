@@ -23,12 +23,30 @@ foreign import javascript unsafe "[{name: 'dummy', carry: { energy: 12}, pos: {x
 foreign import javascript unsafe "module.exports.loop = $1" js_mainLoop :: C.Callback (IO()) -> IO()
 foreign import javascript unsafe "Game.creeps[$1].moveTo($2,$3);" js_moveAction :: S.JSString -> Int -> Int -> IO ()
 foreign import javascript unsafe "Object.keys(Game.creeps).map(function(k){ return Game.creeps[k]})" js_getcreeps :: T.JSVal
+foreign import javascript unsafe "Game.rooms.sim.find(FIND_SOURCES)" js_getsources :: T.JSVal
 
 type CreepName = String
 type Position = (Int, Int)
 
 data Action
   = MoveAction CreepName Position
+  deriving (Show)
+
+data RoomObject
+  = Source
+  { position :: Position 
+  , energy :: Int
+  }
+-- | Spawn Position
+-- | Controller Position
+-- | Extension Position
+  deriving (Show)
+
+data Room
+  = Room
+  { roomObjects :: [RoomObject]
+  , roomCreeps :: [Creep]
+  }
   deriving (Show)
 
 runAction :: Action -> IO ()
@@ -55,13 +73,16 @@ tick :: IO ()
 tick = do
   creepList <- P.fromJSArray js_getcreeps
   creeps <- mapM readCreep creepList
-  putStrLn $ show creeps
-  let actions = think creeps
+  sourceList <- P.fromJSArray js_getsources
+  sources <- mapM readSource sourceList
+  let room = Room sources creeps
+  putStrLn $ show room
+  let actions = think room
   forM_ actions runAction
   putStrLn $ show actions
 
-think :: [Creep] -> [Action]
-think creeps = map makeAction creeps
+think :: Room -> [Action]
+think room = map makeAction (roomCreeps room)
   where makeAction creep = MoveAction (creepName creep) (newPos creep)
         newPos (Creep _ (x, y) _ _) = (x + 1, y + 1)
 
@@ -87,3 +108,10 @@ readPos v = do
   x <- P.getProp v "x"
   y <- P.getProp v "y"
   return $ ((pFromJSVal x), (pFromJSVal y))
+
+readSource :: T.JSVal -> IO RoomObject
+readSource v = do
+  js_pos <- P.getProp v "pos"
+  pos <- readPos js_pos
+  js_energy <- P.getProp v "energy"
+  return $ Source pos (pFromJSVal js_energy)
