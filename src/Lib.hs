@@ -14,10 +14,7 @@ run = do
 tick :: IO ()
 tick = do
   putStrLn $ show "TICK"
-  creeps' <- creeps
-  sources' <- sources
-  controller' <- controller
-  let room = Room sources' creeps' controller'
+  room <- Room <$> sources <*> creeps <*> controller
   let actions = think room
   putStrLn $ show room
   putStrLn $ show actions
