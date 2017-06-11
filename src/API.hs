@@ -2,7 +2,7 @@
 
 module API
     (
-    CreepName,
+    Positional(..),
     Position,
     Resource,
     CreepInventory,
@@ -37,7 +37,11 @@ foreign import javascript unsafe "Game.creeps[$1].moveTo($2,$3);" js_moveAction 
 foreign import javascript unsafe "Game.creeps[$1].harvest(Game.getObjectById($2));" js_harvestAction :: S.JSString -> S.JSString -> IO ()
 foreign import javascript unsafe "Game.creeps[$1].upgradeController(Game.getObjectById($2));" js_upgradeAction :: S.JSString -> S.JSString -> IO ()
 
-type CreepName = String
+class Positional a where
+  position :: a -> Position
+  objectId :: a -> String
+
+type ObjectId = String
 type Position = (Int, Int)
 type Resource = String
 type CreepInventory = Map.Map Resource Int
@@ -51,17 +55,28 @@ data Action
 
 data RoomObject
   = Source
-  { sourceId :: String
-  , sourcePosition :: Position 
+  { roId :: ObjectId
+  , roPosition :: Position
   , sourceEnergy :: Int
   }
--- | Spawn Position
-  | Controller 
-  { controllerId :: String
-  , controllerPosition :: Position
+  | Spawn
+  { roId :: ObjectId
+  , roPosition :: Position
+  }
+  | Controller
+  { roId :: ObjectId
+  , roPosition :: Position
   }
 -- | Extension Position
   deriving (Show)
+
+instance Positional Creep where
+  position = creepPos
+  objectId = \_ -> "" --TODO
+
+instance Positional RoomObject where
+  position = roPosition
+  objectId = roId
 
 data Room
   = Room
@@ -87,8 +102,8 @@ tickCallback f = do
 
 runAction :: Action -> IO ()
 runAction (MoveAction creep (x, y)) = js_moveAction (S.pack $ creepName creep) x y
-runAction (HarvestAction creep source) = js_harvestAction (S.pack $ creepName creep) (S.pack (sourceId source))
-runAction (UpgradeAction creep controller) = js_upgradeAction (S.pack $ creepName creep) (S.pack (controllerId controller))
+runAction (HarvestAction creep source) = js_harvestAction (S.pack $ creepName creep) (S.pack (objectId source))
+runAction (UpgradeAction creep controller) = js_upgradeAction (S.pack $ creepName creep) (S.pack (objectId controller))
 runAction (NoopAction creep) = putStrLn $ (creepName creep) ++ " is doing NOTHING"
 
 readCreep :: T.JSVal -> IO Creep

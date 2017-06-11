@@ -20,30 +20,60 @@ tick = do
   putStrLn $ show actions
   forM_ actions runAction
 
-think :: Room -> [Action]
-think room = map makeAction (roomCreeps room)
-  where makeAction creep 
-                    | inRange 2 (creepPos creep) (controllerPosition (roomController room)) =
-                        if not $ empty creep 
-                        then  UpgradeAction creep (roomController room)
-                        else moveTo creep (sourcePosition targetSource)
-                    | adjacent (creepPos creep) (sourcePosition targetSource) = 
-                        if not $ full creep
-                        then HarvestAction creep targetSource
-                        else moveTo creep (controllerPosition (roomController room))
-                    | otherwise = moveTo creep (targetPos creep)
+data Behavior = A | B | C
+
+defaultBehavior ::  Room -> Creep -> Behavior
+defaultBehavior room creep
+  | inRange 2 creep (roomController room) = A
+  | adjacent creep targetSource = B
+  | otherwise = C
+  where
+    targetSource = (head (roomObjects room))
+
+data BehaviorOp = BehaviorOp
+  (Behavior -> Action)
+
+blaOp0 :: Room -> Creep -> BehaviorOp
+blaOp0 room creep = BehaviorOp f
+    where 
+        f A =
+          if not $ empty creep
+          then  UpgradeAction creep (roomController room)
+          else moveTo creep targetSource
+        f B =
+          if not $ full creep
+          then HarvestAction creep targetSource
+          else moveTo creep (roomController room)
+        f C =
+          if full creep
+          then moveTo creep (roomController room)
+          else moveTo creep targetSource
         targetSource = (head (roomObjects room))
-        targetPos creep
-                | full creep = (controllerPosition (roomController room))
-                | otherwise = (sourcePosition targetSource)
 
-moveTo :: Creep -> Position -> Action
-moveTo creep pos = MoveAction creep pos
+think :: Room -> [Action]
+think room = map f (roomCreeps room)
+  where 
+      makeBehaviorOp creep = blaOp0 room creep
+      makeBehaviorbla creep = defaultBehavior room creep
+      f :: Creep -> Action
+      f creep = 
+        let (BehaviorOp b) = makeBehaviorOp creep
+            c = makeBehaviorbla creep
+        in b c
 
-inRange :: Int -> Position -> Position -> Bool
-inRange 0 a b = a == b
-inRange range (ax, ay) (bx, by) = ((distance ax bx) <= range) && ((distance ay by) <= range)
-  where distance a b = abs $ a - b
+moveTo :: Positional a => Creep -> a -> Action
+moveTo creep p = MoveAction creep (position p)
+
+inRange :: (Positional a, Positional b) => Int -> a -> b -> Bool
+inRange 0 a b = (position a) == (position b)
+inRange range a b = ((distance ax bx) <= range) && ((distance ay by) <= range)
+  where
+    distance a b = abs $ a - b
+    (ax, ay) = position a
+    (bx, by) = position b
+
+
+
 
 adjacent = inRange 1
 

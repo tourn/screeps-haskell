@@ -4,6 +4,9 @@ export $(shell sed 's/=.*//' .env)
 build:
 	docker run --rm -v `pwd`:/opt/workspace -w /opt/workspace tourn/screeps:latest stack build --allow-different-user
 
+watch:
+	docker run -it --rm -v `pwd`:/opt/workspace -w /opt/workspace tourn/screeps:latest stack build --allow-different-user --file-watch
+
 setup:
 	docker run --rm -v `pwd`:/opt/workspace -w /opt/workspace tourn/screeps:latest stack setup --allow-different-user
 
