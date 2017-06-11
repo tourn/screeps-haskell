@@ -20,45 +20,43 @@ tick = do
   putStrLn $ show actions
   forM_ actions runAction
 
-data Behavior = A | B | C
+data Behavior = Gather | Work
+
 
 defaultBehavior ::  Room -> Creep -> Behavior
 defaultBehavior room creep
-  | inRange 2 creep (roomController room) = A
-  | adjacent creep targetSource = B
-  | otherwise = C
+  | gathering = Gather
+  | otherwise = Work
   where
     targetSource = (head (roomObjects room))
+    gathering = (empty creep) || ((adjacent creep targetSource) && not (full creep))
 
 data BehaviorOp = BehaviorOp
   (Behavior -> Action)
 
 blaOp0 :: Room -> Creep -> BehaviorOp
 blaOp0 room creep = BehaviorOp f
-    where 
-        f A =
-          if not $ empty creep
-          then  UpgradeAction creep (roomController room)
-          else moveTo creep targetSource
-        f B =
-          if not $ full creep
-          then HarvestAction creep targetSource
-          else moveTo creep (roomController room)
-        f C =
-          if full creep
-          then moveTo creep (roomController room)
-          else moveTo creep targetSource
-        targetSource = (head (roomObjects room))
+  where
+      f Work =
+        if inRange 2 creep controller
+        then UpgradeAction creep controller
+        else moveTo creep controller
+      f Gather =
+        if adjacent creep targetSource
+        then HarvestAction creep targetSource
+        else moveTo creep targetSource
+      targetSource = (head (roomObjects room))
+      controller = roomController room
 
 think :: Room -> [Action]
 think room = map f (roomCreeps room)
-  where 
+  where
       makeBehaviorOp creep = blaOp0 room creep
-      makeBehaviorbla creep = defaultBehavior room creep
+      makeDefaultBehavior creep = defaultBehavior room creep
       f :: Creep -> Action
-      f creep = 
+      f creep =
         let (BehaviorOp b) = makeBehaviorOp creep
-            c = makeBehaviorbla creep
+            c = makeDefaultBehavior creep
         in b c
 
 moveTo :: Positional a => Creep -> a -> Action
@@ -71,9 +69,6 @@ inRange range a b = ((distance ax bx) <= range) && ((distance ay by) <= range)
     distance a b = abs $ a - b
     (ax, ay) = position a
     (bx, by) = position b
-
-
-
 
 adjacent = inRange 1
 
