@@ -23,7 +23,11 @@ Here's the very very basics:
 
 [src/Lib.hs](https://github.com/tourn/screeps-haskell/blob/master/src/Lib.hs) currently contains the main logic. Start looking at what's happening there.
 
-## How to run it
+## How to run it with Atom
+
+Use this plugin which should handle everything for you: https://github.com/bigaru/screeps-haskell-atom/
+
+## How to run it otherwise
 
 * Have a *.env* file with USERNAME and PASSWORD of your screeps account. If you don't have an account, just create an empty .env file so the Makefile works
 
