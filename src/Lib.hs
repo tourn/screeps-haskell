@@ -20,7 +20,7 @@ tick = do
   putStrLn $ show actions
   forM_ actions runAction
 
-data Behavior = Gather | Work
+data Behavior = Gather | Work | Patrol | Attack
 
 
 defaultBehavior ::  Room -> Creep -> Behavior
@@ -29,13 +29,23 @@ defaultBehavior room creep
   | otherwise = Work
   where
     targetSource = (head (roomObjects room))
-    gathering = (empty creep) || ((adjacent creep targetSource) && not (full creep))
+    gathering = (empty creep) || ((creep `adjacent` targetSource) && not (full creep))
+
+deliverBehavior ::  Room -> Creep -> Behavior
+deliverBehavior room creep
+  | gathering = Gather
+  | otherwise = Work
+  where
+    targetSource = (head (roomObjects room))
+    gathering = (empty creep) || ((creep `adjacent` targetSource) && not (full creep))
 
 data BehaviorOp = BehaviorOp
   (Behavior -> Action)
 
-blaOp0 :: Room -> Creep -> BehaviorOp
-blaOp0 room creep = BehaviorOp f
+--two levels of decisions: Behavior defines a creep role, BehaviorOps get the specfic atomic instructions for them
+--consider havig a list of behaviors and pick the best one for the situation
+upgradeOp :: Room -> Creep -> BehaviorOp
+upgradeOp room creep = BehaviorOp f
   where
       f Work =
         if inRange 2 creep controller
@@ -46,6 +56,21 @@ blaOp0 room creep = BehaviorOp f
         then HarvestAction creep targetSource
         else moveTo creep targetSource
       targetSource = (head (roomObjects room))
+      controller = roomController room
+
+deilverOp :: Room -> Creep -> BehaviorOp
+deliverOp room creep = BehaviorOp f
+  where
+      f Work =
+        if adjacent creep targetContainer
+        then DeliverAction creep targetContainer
+        else moveTo creep controller
+      f Gather =
+        if adjacent creep targetSource
+        then HarvestAction creep targetSource
+        else moveTo creep targetSource
+      targetSource = (head (roomObjects room))
+      targetContainer = _ -- TODO
       controller = roomController room
 
 think :: Room -> [Action]
